@@ -1,5 +1,5 @@
 import javafx.application.Application
-import javafx.beans.property.SimpleDoubleProperty
+import javafx.application.Platform
 import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.Scene
@@ -9,17 +9,20 @@ import javafx.scene.control.TextArea
 import javafx.scene.control.TextField
 import javafx.scene.layout.VBox
 import javafx.stage.Stage
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.javafx.JavaFx
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.random.Random
-import kotlin.random.nextUInt
 
 class MyApp : Application() {
-    private val backpackSizeProperty = SimpleDoubleProperty(10.0)
-    private val noItemsProperty = SimpleDoubleProperty(10000.0)
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.JavaFx)
+    private var optimizationJob: Job? = null
+    private var stopping = false
 
     override fun start(primaryStage: Stage) {
         val mainPane = VBox(10.0)
@@ -28,81 +31,80 @@ class MyApp : Application() {
 
         val backpackSizeLabel = Label("Backpack size:")
         val backpackSizeField = TextField("10")
-        backpackSizeField.textProperty().addListener { _, _, newValue ->
-            backpackSizeProperty.set(newValue.toDoubleOrNull() ?: 10.0)
-        }
-
         val noItemsLabel = Label("Number of items:")
         val noItemsField = TextField("10000")
-        noItemsField.textProperty().addListener { _, _, newValue ->
-            noItemsProperty.set(newValue.toDoubleOrNull() ?: 10000.0)
-        }
-
         val startButton = Button("Start")
         val outputArea = TextArea()
+        outputArea.isEditable = false
 
         startButton.setOnAction {
+            if (optimizationJob != null) {
+                optimizationJob?.cancel()
+                startButton.text = "Cancelling..."
+                startButton.isDisable = true
+                return@setOnAction
+            }
+
+            // Read and validate controls on the JavaFX thread before starting work.
+            val input = parseOptimizationInput(backpackSizeField.text, noItemsField.text)
             outputArea.clear()
-            GlobalScope.launch(Dispatchers.IO) {
-                runOptimization(
-                    backpackSizeProperty.get().toInt(),
-                    noItemsProperty.get().toInt(),
-                    outputArea
-                )
+            if (input == null) {
+                outputArea.text = "Capacity and item count must be whole numbers from 1 to $MAX_INPUT."
+                return@setOnAction
+            }
+            backpackSizeField.isDisable = true
+            noItemsField.isDisable = true
+            startButton.text = "Cancel"
+            val job = appScope.launch {
+                try {
+                    val result = withContext(Dispatchers.Default) {
+                        optimizeBackpack(input, onImprovement = { remaining ->
+                            withContext(Dispatchers.JavaFx) {
+                                outputArea.appendText("Score: $remaining\n")
+                            }
+                        })
+                    }
+                    outputArea.appendText("\nItem Weights: ${result.itemWeights}\n")
+                    outputArea.appendText("\nBest Genome: ${result.genome}\n")
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    if (!stopping) outputArea.appendText("\nSearch failed: ${error.message}\n")
+                }
+            }
+            optimizationJob = job
+            // Completion also runs if Cancel arrives before the launch body starts.
+            job.invokeOnCompletion {
+                Platform.runLater {
+                    if (optimizationJob === job) {
+                        optimizationJob = null
+                        if (!stopping) {
+                            if (job.isCancelled) outputArea.appendText("\nCancelled.\n")
+                            backpackSizeField.isDisable = false
+                            noItemsField.isDisable = false
+                            startButton.text = "Start"
+                            startButton.isDisable = false
+                        }
+                    }
+                }
             }
         }
 
         mainPane.children.addAll(
-            backpackSizeLabel,
-            backpackSizeField,
-            noItemsLabel,
-            noItemsField,
-            startButton,
-            outputArea
+            backpackSizeLabel, backpackSizeField, noItemsLabel, noItemsField,
+            startButton, outputArea
         )
-
-        val scene = Scene(mainPane)
-        primaryStage.scene = scene
+        primaryStage.scene = Scene(mainPane)
         primaryStage.title = "Backpack Optimization"
         primaryStage.show()
     }
-}
 
-fun score(genome: Array<Boolean>, size: Int, itemWeights: List<Float>): Double {
-    val sumOf = (genome.indices).sumOf { itemWeights[it] * if (genome[it]) 1.0 else 0.0 }
-    return size - sumOf
-}
-
-fun mutate(oldGenome: Array<Boolean>): Array<Boolean> {
-    val newGenome = oldGenome.clone()
-    val index = Random.nextUInt(oldGenome.size.toUInt()).toInt()
-    newGenome[index] = oldGenome[index].not()
-    return newGenome
-}
-
-
-suspend fun runOptimization(backpackSize: Int, noItems: Int, outputArea: TextArea) {
-    val itemWeights = (0 until noItems).map { Random.nextFloat() }
-    var genome = (0 until noItems).map { false }.toTypedArray()
-
-    (1 until 10000000).forEach { _ ->
-        val newGenome = mutate(genome)
-        val oldScore = score(genome, backpackSize, itemWeights)
-        val newScore = score(newGenome, backpackSize, itemWeights)
-        if (newScore < oldScore && (newScore < 0).not()) {
-            genome = newGenome
-            withContext(Dispatchers.JavaFx) {
-                outputArea.appendText("Score: $newScore\n")
-            }
-        }
-    }
-    withContext(Dispatchers.JavaFx) {
-        outputArea.appendText("\nItem Weights: $itemWeights\n")
-        outputArea.appendText("\nBest Genome: ${genome.toList()}\n")
+    override fun stop() {
+        stopping = true
+        appScope.cancel()
     }
 }
 
 fun main() {
     Application.launch(MyApp::class.java)
 }
-
