@@ -1,4 +1,5 @@
 import javafx.application.Application
+import javafx.application.Platform
 import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.Scene
@@ -54,7 +55,7 @@ class MyApp : Application() {
             backpackSizeField.isDisable = true
             noItemsField.isDisable = true
             startButton.text = "Cancel"
-            optimizationJob = appScope.launch {
+            val job = appScope.launch {
                 try {
                     val result = withContext(Dispatchers.Default) {
                         optimizeBackpack(input, onImprovement = { remaining ->
@@ -66,16 +67,24 @@ class MyApp : Application() {
                     outputArea.appendText("\nItem Weights: ${result.itemWeights}\n")
                     outputArea.appendText("\nBest Genome: ${result.genome}\n")
                 } catch (cancelled: CancellationException) {
-                    if (!stopping) outputArea.appendText("\nCancelled.\n")
+                    throw cancelled
                 } catch (error: Exception) {
                     if (!stopping) outputArea.appendText("\nSearch failed: ${error.message}\n")
-                } finally {
-                    optimizationJob = null
-                    if (!stopping) {
-                        backpackSizeField.isDisable = false
-                        noItemsField.isDisable = false
-                        startButton.text = "Start"
-                        startButton.isDisable = false
+                }
+            }
+            optimizationJob = job
+            // Completion also runs if Cancel arrives before the launch body starts.
+            job.invokeOnCompletion {
+                Platform.runLater {
+                    if (optimizationJob === job) {
+                        optimizationJob = null
+                        if (!stopping) {
+                            if (job.isCancelled) outputArea.appendText("\nCancelled.\n")
+                            backpackSizeField.isDisable = false
+                            noItemsField.isDisable = false
+                            startButton.text = "Start"
+                            startButton.isDisable = false
+                        }
                     }
                 }
             }

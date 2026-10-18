@@ -19,4 +19,4 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Compile application and run deterministic regression tests
-        run: bash ./gradlew --no-daemon test
+        run: xvfb-run -a bash ./gradlew --no-daemon test

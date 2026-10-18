@@ -28,7 +28,7 @@ The heuristic still tries 9,999,999 random single-bit changes and accepts only s
 ./gradlew test
 ```
 
-Read-only CI compiles the application and runs deterministic tests with Java 17 and the checked-in Gradle wrapper. Tests cover input bounds, agreement with independent full rescoring, reproducible injected randomness, and cancellation during generation and a hot loop without improvements. They do not launch or visually validate JavaFX. The existing Kotlin, JavaFX, coroutine and Gradle versions are retained.
+Read-only CI compiles the application and runs tests with Java 17 and the checked-in Gradle wrapper. Tests cover input bounds, agreement with independent full rescoring, reproducible injected randomness, and cancellation during generation and a hot loop without improvements. Focused JavaFX lifecycle tests run in a virtual X display, including cancellation before the queued search starts and subsequent restart. They do not establish visual acceptance. The OpenJFX Gradle plugin supplies platform-specific JavaFX modules; the existing Kotlin, JavaFX, coroutine and Gradle versions are retained.
 
 ## Status
 
