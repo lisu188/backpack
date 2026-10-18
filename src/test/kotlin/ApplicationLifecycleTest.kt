@@ -9,6 +9,9 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import java.util.concurrent.CompletableFuture
+import java.awt.image.BufferedImage
+import java.io.File
+import javax.imageio.ImageIO
 import java.util.concurrent.TimeUnit
 
 class ApplicationLifecycleTest {
@@ -49,6 +52,18 @@ class ApplicationLifecycleTest {
 
     private fun close(ui: Ui) = onFx { ui.app.stop(); ui.stage.close() }
 
+    private fun capture(ui: Ui) = onFx {
+        val image = ui.stage.scene.snapshot(null)
+        val pixels = image.pixelReader
+        val buffered = BufferedImage(image.width.toInt(), image.height.toInt(), BufferedImage.TYPE_INT_ARGB)
+        for (y in 0 until buffered.height) for (x in 0 until buffered.width) {
+            buffered.setRGB(x, y, pixels.getArgb(x, y))
+        }
+        val output = File("build/reports/ui/backpack-cancelled.png")
+        check(output.parentFile.mkdirs() || output.parentFile.isDirectory)
+        check(ImageIO.write(buffered, "png", output))
+    }
+
     private fun drainCancelledLaunch() {
         // The queued launch completes, then its queued UI cleanup executes.
         onFx { }
@@ -79,6 +94,7 @@ class ApplicationLifecycleTest {
                     assertTrue(ui.output.text.contains("Cancelled."))
                 }
             }
+            capture(ui)
         } finally { close(ui) }
     }
 

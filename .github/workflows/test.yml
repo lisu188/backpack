@@ -20,3 +20,11 @@ jobs:
           java-version: '17'
       - name: Compile application and run deterministic regression tests
         run: xvfb-run -a bash ./gradlew --no-daemon test
+      - name: Retain automated JavaFX scene capture
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backpack-javafx-scene
+          path: build/reports/ui/backpack-cancelled.png
+          if-no-files-found: warn
+          retention-days: 7
