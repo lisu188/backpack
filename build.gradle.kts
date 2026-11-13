@@ -33,13 +33,13 @@ tasks.test {
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
 
 kotlin {
     jvmToolchain(17)
-    compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) }
+    compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
 }
 
 application {
