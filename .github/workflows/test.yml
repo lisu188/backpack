@@ -22,7 +22,7 @@ jobs:
         run: xvfb-run -a bash ./gradlew --no-daemon test
       - name: Retain automated JavaFX scene capture
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backpack-javafx-scene
           path: build/reports/ui/backpack-cancelled.png
