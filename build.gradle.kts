@@ -1,4 +1,4 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     kotlin("jvm") version "2.4.21"
@@ -17,8 +17,10 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
     implementation("no.tornado:tornadofx:1.7.20")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-javafx:1.6.4")
-    testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-javafx:1.11.0")
+    testImplementation(platform("org.junit:junit-bom:6.1.3"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 javafx {
@@ -30,8 +32,14 @@ tasks.test {
     useJUnitPlatform()
 }
 
-tasks.withType<KotlinCompile> {
-    kotlinOptions.jvmTarget = "1.8"
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+kotlin {
+    jvmToolchain(17)
+    compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
 }
 
 application {
