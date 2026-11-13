@@ -16,7 +16,7 @@ repositories {
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
     implementation("no.tornado:tornadofx:1.7.20")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-javafx:1.6.4")
     testImplementation("org.junit.jupiter:junit-jupiter:5.9.1")
 }
